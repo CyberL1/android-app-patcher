@@ -67,7 +67,29 @@ function command_help() {
   echo "Usage: $0 <command>"
   echo "Commands:"
   echo "  help - Show this help message"
+  echo "  decompile - Decompile an app"
   echo "  generate - Generate a patch for an app"
+}
+
+function command_decompile() {
+  APP_NAME=$2
+  if test ! $APP_NAME; then
+    echo "Usage: $0 decompile <app>"
+    exit 1
+  fi
+
+  if test ! -d $APK_SOURCES_DIR/$APP_NAME; then
+    echo "APK sources directory for $APP_NAME not found, creating"
+    mkdir $APK_SOURCES_DIR/$APP_NAME
+  fi
+
+  if test ! -f $APKS_DIR/$APP_NAME.apk; then
+    echo "APK for $APP_NAME not found"
+    exit 1
+  fi
+
+  echo "Decompiling $APP_NAME"
+  java -jar $TOOLS_DIR/apktool.jar d $APKS_DIR/$APP_NAME.apk -o $APK_SOURCES_DIR/$APP_NAME -f
 }
 
 function command_generate() {
