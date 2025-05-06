@@ -69,6 +69,7 @@ function command_help() {
   echo "  help - Show this help message"
   echo "  decompile - Decompile an app"
   echo "  generate - Generate a patch for an app"
+  echo "  patch - Apply patches to an app"
 }
 
 function command_decompile() {
@@ -123,6 +124,61 @@ function command_generate() {
 
   echo "Generating $PATCH_NAME patch for $APP_NAME"
   diff -u $ORIGINAL_FILE_PATH $ORIGINAL_FILE_PATH.modified > $PATCHES_DIR/$APP_NAME/$PATCH_NAME.patch
+}
+
+function command_patch() {
+  APP_NAME=$2
+  if test ! $APP_NAME; then
+    echo "Usage: $0 patch <app>"
+    exit 1
+  fi
+
+  if test ! -d $PATCHES_DIR/$APP_NAME; then
+    echo "Patches directory for $APP_NAME not found"
+    exit 1
+  fi
+
+  if test ! -f $APKS_DIR/$APP_NAME.apk; then
+    echo "APK for $APP_NAME not found"
+    exit 1
+  fi
+
+  if test ! -f $PATCHES_DIR/$APP_NAME/*.patch; then
+    echo "No patches found for $APP_NAME"
+    exit 1
+  fi
+
+  if test ! -d $APK_SOURCES_DIR/$APP_NAME; then
+    echo "APK sources directory for $APP_NAME not found, creating"
+    mkdir $APK_SOURCES_DIR/$APP_NAME
+  fi
+
+  cd $APK_SOURCES_DIR/$APP_NAME
+
+  echo "Decompiling $APP_NAME"
+  java -jar $TOOLS_DIR/apktool.jar d $APKS_DIR/$APP_NAME.apk -o $APK_SOURCES_DIR/$APP_NAME -f --no-res
+
+  echo "Applying patches for $APP_NAME"
+
+  cd $APK_SOURCES_DIR/$APP_NAME
+  for patch in $PATCHES_DIR/$APP_NAME/*.patch; do
+    echo "Applying $patch"
+    patch -p0 < $patch
+  done
+
+  echo "Recompiling $APP_NAME"
+  java -jar $TOOLS_DIR/apktool.jar b
+
+  echo "Signing $APP_NAME"
+  java -jar $TOOLS_DIR/uber-apk-signer.jar -a dist/$APP_NAME.apk -o $PATCHED_APKS_DIR/$APP_NAME
+
+  if test ! -f $PATCHED_APKS_DIR/$APP_NAME/$APP_NAME-aligned-debugSigned.apk; then
+    echo "Apk patch failed"
+    exit 1
+  fi
+
+  echo "Patches applied successfully, cleaning up"
+  rm -rfv $APK_SOURCES_DIR/$APP_NAME
 }
 
 # Initialize the script
